@@ -1,101 +1,75 @@
-// --- Element Selectors ---
-const amountInput = document.getElementById('amount');
-const fromCurrencySelect = document.getElementById('from-currency');
-const toCurrencySelect = document.getElementById('to-currency');
-const swapButton = document.getElementById('swap-button');
-const resultDiv = document.getElementById('result');
+// Get DOM elements
+const amountEl = document.getElementById("amount");
+const fromCurrencyEl = document.getElementById("from-currency");
+const toCurrencyEl = document.getElementById("to-currency");
+const resultEl = document.getElementById("result");
+const swapBtn = document.getElementById("swap-button");
 
-// --- IMPORTANT: Update these values ---
-const API_KEY = "8ba131cbe2d815620d30bc086d0d87a8"; // Paste your API key here
-const API_URL = `http://api.exchangeratesapi.io/v1/latest?access_key=${API_KEY}`;
+// API endpoint
+const API_URL = "https://api.exchangerate-api.com/v4/latest/";
 
-// --- Global variable to store the fetched rates ---
-let currencyRates = {}; 
-
-/**
- * Fetches all currency rates (base EUR) and stores them.
- * Also populates the dropdowns.
- */
-async function setupConverter() {
-    resultDiv.textContent = 'Loading latest rates...';
+// Load currency options
+async function loadCurrencies() {
     try {
-        const response = await fetch(API_URL);
-        if (!response.ok) throw new Error('Failed to fetch rates from API.');
-        
-        const data = await response.json();
+        const res = await fetch(API_URL + "USD"); // default base currency
+        const data = await res.json();
+        const currencies = Object.keys(data.rates);
 
-        if (!data.success) {
-            throw new Error(`API Error: ${data.error.info || 'An error occurred.'}`);
-        }
+        // Populate select dropdowns
+        currencies.forEach(currency => {
+            let option1 = new Option(currency, currency);
+            let option2 = new Option(currency, currency);
 
-        currencyRates = data.rates; // Store the rates object
-        
-        // Populate dropdowns using the keys from the rates object
-        for (const currency in currencyRates) {
-            const option1 = document.createElement('option');
-            option1.value = currency;
-            option1.textContent = currency;
-            fromCurrencySelect.appendChild(option1);
+            fromCurrencyEl.add(option1);
+            toCurrencyEl.add(option2);
+        });
 
-            const option2 = document.createElement('option');
-            option2.value = currency;
-            option2.textContent = currency;
-            toCurrencySelect.appendChild(option2);
-        }
-        
-        // Set default values
-        fromCurrencySelect.value = 'USD';
-        toCurrencySelect.value = 'INR';
+        // Set defaults
+        fromCurrencyEl.value = "USD";
+        toCurrencyEl.value = "INR";
 
-        // Perform initial conversion after setup is complete
+        // Do initial calculation
         convertCurrency();
-
     } catch (error) {
-        resultDiv.textContent = `Error: ${error.message}`;
-        console.error('Error during setup:', error);
+        resultEl.innerText = "Error loading currencies!";
     }
 }
 
-
-/**
- * Calculates and displays the converted amount using stored rates.
- */
-function convertCurrency() {
-    const amount = parseFloat(amountInput.value);
-    const fromCurrency = fromCurrencySelect.value;
-    const toCurrency = toCurrencySelect.value;
+// Convert function
+async function convertCurrency() {
+    const amount = parseFloat(amountEl.value);
+    const fromCurrency = fromCurrencyEl.value;
+    const toCurrency = toCurrencyEl.value;
 
     if (isNaN(amount) || amount <= 0) {
-        resultDiv.textContent = 'Please enter a valid amount.';
+        resultEl.innerText = "Enter a valid amount!";
         return;
     }
-    
-    // Get rates relative to EUR from our stored object
-    const fromRate = currencyRates[fromCurrency];
-    const toRate = currencyRates[toCurrency];
 
-    // The calculation logic: convert from 'From Currency' to EUR, then from EUR to 'To Currency'
-    const amountInEur = amount / fromRate;
-    const convertedAmount = amountInEur * toRate;
-    
-    resultDiv.textContent = `${amount} ${fromCurrency} = ${convertedAmount.toFixed(2)} ${toCurrency}`;
+    try {
+        const res = await fetch(API_URL + fromCurrency);
+        const data = await res.json();
+        const rate = data.rates[toCurrency];
+        const converted = (amount * rate).toFixed(2);
+
+        resultEl.innerText = `${amount} ${fromCurrency} = ${converted} ${toCurrency}`;
+    } catch (error) {
+        resultEl.innerText = "Conversion error!";
+    }
 }
 
-// --- Event Listeners ---
-amountInput.addEventListener('input', convertCurrency);
-fromCurrencySelect.addEventListener('change', convertCurrency);
-toCurrencySelect.addEventListener('change', convertCurrency);
+// Event listeners
+amountEl.addEventListener("input", convertCurrency);
+fromCurrencyEl.addEventListener("change", convertCurrency);
+toCurrencyEl.addEventListener("change", convertCurrency);
 
-swapButton.addEventListener('click', () => {
-    // Swap the selected values
-    const temp = fromCurrencySelect.value;
-    fromCurrencySelect.value = toCurrencySelect.value;
-    toCurrencySelect.value = temp;
-    // Recalculate after swapping
+swapBtn.addEventListener("click", () => {
+    // Swap currencies
+    const temp = fromCurrencyEl.value;
+    fromCurrencyEl.value = toCurrencyEl.value;
+    toCurrencyEl.value = temp;
     convertCurrency();
 });
 
-
-// --- Initial Setup ---
-// When the page is fully loaded, run the setup function
-document.addEventListener('DOMContentLoaded', setupConverter);
+// Initialize
+loadCurrencies();
